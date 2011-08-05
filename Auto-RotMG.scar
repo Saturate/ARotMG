@@ -1,0 +1,117 @@
+program AutoRotMG;
+Type
+  items = Record
+  image : Integer;
+  name : String;
+  End;
+var
+  b, x, y, i, slot, sX, sY : Integer;
+  clientW, clientH : longInt;
+  slotSvailable : Boolean;
+  slotsArray : Array[1..8] of Integer;
+  itemsArray : Array[1..500] of items;
+Procedure GrabItem(item : items; sX, sY, eX, eY : Integer);
+Var
+  i,h,w,oX,oY : Integer;
+Begin
+
+    GetMousePos(oX,oY); // So we can start where we left
+    // for i := 0 to 7 do
+    //Begin
+    // Get the size, we need to find the middle og the item (not working right now type michmas)
+    GetBitmapSize(item.image,w,h)
+    writeLn('Grab:' +IntToStr(sX)+ '/' +IntToStr(sY)+ ' -->'  + IntToStr(eX)+ '/' +IntToStr(eY) + '(size: '+IntToStr(w)+' )' )
+
+    sX := sX + 10;
+    sY := sY + 10;
+
+    HoldMouse(sX, sY , true);
+    ReleaseMouse(eX, eY,true);
+    MoveMouse(oX, oY);
+
+    writeLn('we grabbed: ' + item.name)
+
+    Wait(50);
+    exit;
+End;
+
+// Find free slots for items
+Function findFreeSlots(var sX : Integer; var sY : Integer; var slotSvailable : Boolean) : Integer;
+Begin
+  writeLn('Trying to find a free slot');
+  slotSvailable := false;
+  // Find avaible slots
+  For slot := 1 to 8 do
+  Begin
+    if FindBitmapToleranceIn(slotsArray[slot], sX, sY, 610, 404, 790, 490, 10) then
+    Begin
+     writeLn('Slot ' + IntToStr(slot) + ' is free @' + IntToStr(sX) +'/'+ IntToStr(sY));
+     slotSvailable := true;
+     exit;
+    End;
+  End;
+End;
+
+{Procedure autoPotionUse()
+Begin
+
+End;}
+
+begin
+  writeLn('Script started...');
+
+  // Slots
+  slotsArray[1] := LoadBitmap('slots/slot1.png');
+  slotsArray[2] := LoadBitmap('slots/slot2.png');
+  slotsArray[3] := LoadBitmap('slots/slot3.png');
+  slotsArray[4] := LoadBitmap('slots/slot4.png');
+  slotsArray[5] := LoadBitmap('slots/slot5.png');
+  slotsArray[6] := LoadBitmap('slots/slot6.png');
+  slotsArray[7] := LoadBitmap('slots/slot7.png');
+  slotsArray[8] := LoadBitmap('slots/slot8.png');
+
+  // Items to pick up
+  itemsArray[1].name := 'Health Potion';
+  itemsArray[1].image := LoadBitmap('Items/HealthPotion.png');
+  itemsArray[2].name := 'Desolation Armor';
+  itemsArray[2].image := LoadBitmap('Items/DesolationArmor.png');
+  itemsArray[3].name := 'Dragonscale Armor';
+  itemsArray[3].image := LoadBitmap('Items/DragonScaleArmor.png');
+  itemsArray[4].name := 'Golden Bow';
+  itemsArray[4].image := LoadBitmap('Items/GoldenBow.png');
+  itemsArray[5].name := 'Speed Potion';
+  itemsArray[5].image := LoadBitmap('Items/SpeedPotion.png');
+  itemsArray[6].name := 'Attack Potion';
+  itemsArray[6].image := LoadBitmap('Items/AttackPotion.png');
+  itemsArray[7].name := 'Defense Potion';
+  itemsArray[7].image := LoadBitmap('Items/DefensePotion.png');
+  itemsArray[8].name := 'Ring of Paramount Defense';
+  itemsArray[8].image := LoadBitmap('Items/ParamountDefense.png');
+  itemsArray[9].name := 'Archon Sword';
+  itemsArray[9].image := LoadBitmap('Items/ArchonSword.png');
+  itemsArray[10].name := 'Magic Potion';
+  itemsArray[10].image := LoadBitmap('Items/MagicPotion.png');
+
+  // Save a screendump!
+  SaveScreenshot('RotMG_client.png');
+  GetClientDimensions(clientW,clientH);
+  writeLn('W:' + IntToStr(clientW) + ' / H:' + IntToStr(clientH));
+
+  while true do
+    begin
+      For i := 1 to 10 do
+      Begin
+        if FindBitmapToleranceIn(itemsArray[i].image, x, y, 610, 508, 795, 600, 10) then
+        begin
+          // Find items
+          writeLn('We found: ' + itemsArray[i].name +' @' + IntToStr(x) + '/' + IntToStr(y) );
+          findFreeSlots(sX,sY,slotSvailable);
+          if slotSvailable then
+            Begin
+              GrabItem(itemsArray[i], x, y, sX, sY);
+            End;
+         end;
+      end;
+    end;
+
+end.
