@@ -2,63 +2,199 @@ program AutoRotMG;
 Type
   items = Record
   image : Integer;
-  name : String;
+  name, itype : String;
   End;
+const
+  HealthCol = 3421408;
+  ManaColor = 14713952;
+  BarGray = 5526612;
+  mouse_Right = 0;
+  mouse_Left = true; { 1 in simba }
+  mouse_Middle = 2;
+  itemLength = 58; { You have to change this when you add items }
 var
-  b, x, y, i, slot, sX, sY : Integer;
+  x, y, i, slot, sX, sY : Integer;
   clientW, clientH : longInt;
   slotSvailable : Boolean;
   slotsArray : Array[1..8] of Integer;
   itemsArray : Array[1..500] of items;
-Procedure GrabItem(item : items; sX, sY, eX, eY : Integer);
-Var
-  i,h,w,oX,oY : Integer;
+  msg, LastMsg : String;
+
+// Use consoleWrite to prevent spam in console.
+Procedure consoleWrite(msg : String);
 Begin
+  if msg <> LastMsg then
+  Begin
+    LastMsg := msg;
+    WriteLn(TimeToStr(Time) + ': ' + msg);
+  End;
+End;
+
+// Moves items from cordinates
+Procedure GrabItem(item : items; sX, sY, eX, eY : Integer);
+  Var
+    i,h,w,oX,oY : Integer;
+  Begin
 
     GetMousePos(oX,oY); // So we can start where we left
-    // for i := 0 to 7 do
-    //Begin
+
     // Get the size, we need to find the middle og the item (not working right now type michmas)
-    GetBitmapSize(item.image,w,h)
-    writeLn('Grab:' +IntToStr(sX)+ '/' +IntToStr(sY)+ ' -->'  + IntToStr(eX)+ '/' +IntToStr(eY) + '(size: '+IntToStr(w)+' )' )
+    GetBitmapSize(item.image,w,h);
 
     sX := sX + 10;
     sY := sY + 10;
 
-    HoldMouse(sX, sY , true);
-    ReleaseMouse(eX, eY,true);
+    MoveMouse(sX, sY);
+    HoldMouse(sX, sY, mouse_Left);
+    MoveMouse(eX, eY);
+    ReleaseMouse(eX, eY, mouse_Left);
     MoveMouse(oX, oY);
 
-    writeLn('we grabbed: ' + item.name)
+    consoleWrite('we grabbed: ' + item.name)
 
-    Wait(50);
+    Wait(150);
+
+
+    exit;
+End;
+
+// Swaps a bad item for a better one
+Procedure SwapItem(item : items; sX, sY : Integer);
+  Var
+    i,h,w,oX,oY : Integer;
+  Begin
+
+    GetMousePos(oX,oY); // So we can start where we left
+
+    // Get the size, we need to find the middle og the item (not working right now type michmas)
+    GetBitmapSize(item.image,w,h);
+
+    sX := sX + 10;
+    sY := sY + 10;
+
+    MoveMouse(sX, sY);
+    HoldMouse(sX, sY, mouse_Left);
+    {MoveMouse(eX, eY);
+    ReleaseMouse(eX, eY, mouse_Left);
+    MoveMouse(oX, oY);    }
+
+    consoleWrite('we grabbed: ' + item.name)
+
+    Wait(250);
+
     exit;
 End;
 
 // Find free slots for items
 Function findFreeSlots(var sX : Integer; var sY : Integer; var slotSvailable : Boolean) : Integer;
 Begin
-  writeLn('Trying to find a free slot');
   slotSvailable := false;
   // Find avaible slots
   For slot := 1 to 8 do
   Begin
     if FindBitmapToleranceIn(slotsArray[slot], sX, sY, 610, 404, 790, 490, 10) then
     Begin
-     writeLn('Slot ' + IntToStr(slot) + ' is free @' + IntToStr(sX) +'/'+ IntToStr(sY));
-     slotSvailable := true;
-     exit;
+      //writeLn('Slot ' + IntToStr(slot) + ' is free'));
+      // Find the middle
+      sX := sX + 10;
+      sY := sY + 10;
+
+      slotSvailable := true;
+      exit;
     End;
   End;
 End;
 
-{Procedure autoPotionUse()
+{ AUTOHEALER & BluePill
+  611-788 is health
+
+  Keycodes:
+  F5 = 116
+  F = 46 (70 in SCAR)
+
+  Links:
+  http://www.neofriends.net/scripting-f51/key-codes-for-scar-t3808.html
+  http://docs.villavu.com/simba/scriptref/mouseandkeyboard.html?highlight=keydown
+}
+Procedure autoPotionUse();
+Var
+  potX, potY, oX, oY : Integer;
+Begin {611-788 is health}
+
+  // Drink potion
+  if (GetColor(720,265) <> HealthCol) and (GetColor(720,265) = BarGray) then
+  Begin
+    consoleWrite('Low Health!');
+    // Find them by type! (Pressing 1-8 will be better then mouse)
+    For i := 1 to itemLength do
+      Begin
+        if itemsArray[i].itype = 'Health' then
+          Begin
+            if FindBitmapToleranceIn(itemsArray[i].image, potX, potY, 610, 406, 790, 495, 10)then
+              Begin
+                consoleWrite('Use a '+itemsArray[i].name+', god damnnit!');
+
+                GetMousePos(oX,oY); // So we can start where we left
+
+                KeyDown(16);
+                HoldMouse(potX,potY,true);
+                ReleaseMouse(potX,potY,true);
+                KeyUp(16);
+
+                MoveMouse(oX, oY);
+
+                Wait(200);
+                exit;
+              End;
+          End;
+      End;
+  End;
+
+  // Teleport to nexus
+  if (GetColor(685,265) <> HealthCol) and (GetColor(685,265) = BarGray) then
+  Begin
+    consoleWrite('Ops, Imma save your life, back to the nexus!');
+    KeyDown(70);
+    KeyUp(70);
+    Wait(20000);
+  End;
+
+
+  // Drink Mana potion (But not if we have 0)
+  if (GetColor(720,290) <> ManaColor) and (GetColor(720,290) = BarGray) and (GetColor(612, 295) <> BarGray) then
+  Begin
+    // Find them by type! (Pressing 1-8 will be better then mouse)
+    For i := 1 to itemLength do
+      Begin
+        if itemsArray[i].itype = 'Mana' then
+          Begin
+            if FindBitmapToleranceIn(itemsArray[i].image, potX, potY, 610, 406, 790, 495, 10)then
+              Begin
+                consoleWrite('Used a '+itemsArray[i].name+', for more mana!');
+
+                GetMousePos(oX,oY); // So we can start where we left
+
+                KeyDown(16);
+                HoldMouse(potX,potY,true);
+                ReleaseMouse(potX,potY,true);
+                KeyUp(16);
+
+                MoveMouse(oX, oY);
+
+                Wait(200);
+                exit;
+              End;
+          End;
+      End;
+  End;
+
+End;
+
 Begin
-
-End;}
-
-begin
   writeLn('Script started...');
+
+  // Vars
+  LastMsg := '';
 
   // Slots
   slotsArray[1] := LoadBitmap('slots/slot1.png');
@@ -71,47 +207,213 @@ begin
   slotsArray[8] := LoadBitmap('slots/slot8.png');
 
   // Items to pick up
-  itemsArray[1].name := 'Health Potion';
-  itemsArray[1].image := LoadBitmap('Items/HealthPotion.png');
-  itemsArray[2].name := 'Desolation Armor';
-  itemsArray[2].image := LoadBitmap('Items/DesolationArmor.png');
-  itemsArray[3].name := 'Dragonscale Armor';
-  itemsArray[3].image := LoadBitmap('Items/DragonScaleArmor.png');
-  itemsArray[4].name := 'Golden Bow';
-  itemsArray[4].image := LoadBitmap('Items/GoldenBow.png');
-  itemsArray[5].name := 'Speed Potion';
-  itemsArray[5].image := LoadBitmap('Items/SpeedPotion.png');
-  itemsArray[6].name := 'Attack Potion';
-  itemsArray[6].image := LoadBitmap('Items/AttackPotion.png');
-  itemsArray[7].name := 'Defense Potion';
-  itemsArray[7].image := LoadBitmap('Items/DefensePotion.png');
-  itemsArray[8].name := 'Ring of Paramount Defense';
-  itemsArray[8].image := LoadBitmap('Items/ParamountDefense.png');
-  itemsArray[9].name := 'Archon Sword';
-  itemsArray[9].image := LoadBitmap('Items/ArchonSword.png');
-  itemsArray[10].name := 'Magic Potion';
-  itemsArray[10].image := LoadBitmap('Items/MagicPotion.png');
+  itemsArray[1].name := 'Robe of the Grand Sorcerer';
+  itemsArray[1].itype := 'Robe';
+  itemsArray[1].image := LoadBitmap('Items/RobeoftheGrandSorcerer.png');
+  itemsArray[2].name := 'Staff of Extreme Prejudice';
+  itemsArray[2].itype := 'Staff';
+  itemsArray[2].image := LoadBitmap('Items/StaffofExtremePrejudice.png');
+  itemsArray[3].name := 'Doom Bow';
+  itemsArray[3].itype := 'Bow';
+  itemsArray[3].image := LoadBitmap('Items/DoomBow.png');
+  itemsArray[4].name := 'WineCellarIncantation';
+  itemsArray[4].itype := 'Key';
+  itemsArray[4].image := LoadBitmap('Items/WineCellarIncantation.png');
+  itemsArray[5].name := 'Ring of Exalted Defense';
+  itemsArray[5].itype := 'Ring';
+  itemsArray[5].image := LoadBitmap('Items/RingofExaltedDefense.png');
+  itemsArray[6].name := 'Crystal Wand';
+  itemsArray[6].itype := 'Wand';
+  itemsArray[6].image := LoadBitmap('Items/CrystalWand.png');
+  itemsArray[7].name := 'Crystal Sword';
+  itemsArray[7].itype := 'Sword';
+  itemsArray[7].image := LoadBitmap('Items/CrystalSword.png');
+  itemsArray[8].name := 'Ring of Exalted Health';
+  itemsArray[8].itype := 'Ring';
+  itemsArray[8].image := LoadBitmap('Items/RingofExaltedHealth.png');
+  itemsArray[9].name := 'Robe of the Elder Warlock';
+  itemsArray[9].itype := 'Robe';
+  itemsArray[9].image := LoadBitmap('Items/RobeoftheElderWarlock.png');
+  itemsArray[10].name := 'Tome of Divine Favor';
+  itemsArray[10].itype := 'Tome';
+  itemsArray[10].image := LoadBitmap('Items/TomeofDivineFavor.png');
+  itemsArray[11].name := 'Cloak of Endless Twilight';
+  itemsArray[11].itype := 'Cloak';
+  itemsArray[11].image := LoadBitmap('Items/CloakofEndlessTwilight.png');
+  itemsArray[12].name := 'Abyssal Armor';
+  itemsArray[12].itype := 'HeavyArmor';
+  itemsArray[12].image := LoadBitmap('Items/AbyssalArmor.png');
+  itemsArray[13].name := 'Mithril Shield';
+  itemsArray[13].itype := 'Shield';
+  itemsArray[13].image := LoadBitmap('Items/MithrilShield.png');
+  itemsArray[14].name := 'Bow of Innocent Blood';
+  itemsArray[14].itype := 'Bow';
+  itemsArray[14].image := LoadBitmap('Items/BowofInnocentBlood.png');
+  itemsArray[15].name := 'Agateclaw Dagger';
+  itemsArray[15].itype := 'Dagger';
+  itemsArray[15].image := LoadBitmap('Items/AgateclawDagger.png');
+  itemsArray[16].name := 'Acropolis Armor';
+  itemsArray[16].itype := 'HeavyArmor';
+  itemsArray[16].image := LoadBitmap('Items/AcropolisArmor.png');
+  itemsArray[17].name := 'Staff of Diabolic Secrets';
+  itemsArray[17].itype := 'Staff';
+  itemsArray[17].image := LoadBitmap('Items/StaffofDiabolicSecrets.png');
+  itemsArray[18].name := 'Skysplitter Sword';
+  itemsArray[18].itype := 'Sword';
+  itemsArray[18].image := LoadBitmap('Items/SkysplitterSword.png');
+  itemsArray[19].name := 'Griffon Hide Armor';
+  itemsArray[19].itype := 'LeatherArmor';
+  itemsArray[19].image := LoadBitmap('Items/GriffonHideArmor.png');
+  itemsArray[20].name := 'Hippogriff Hide Armor';
+  itemsArray[20].itype := 'LeatherArmor';
+  itemsArray[20].image := LoadBitmap('Items/HippogriffHideArmor.png');
+  itemsArray[21].name := 'Dragon Stalker Trap';
+  itemsArray[21].itype := 'Trap';
+  itemsArray[21].image := LoadBitmap('Items/DragonStalkerTrap.png');
+  itemsArray[22].name := 'Lifedrinker Skull';
+  itemsArray[22].itype := 'Skull';
+  itemsArray[22].image := LoadBitmap('Items/LifedrinkerSkull.png');
+  itemsArray[23].name := 'Defense Potion';
+  itemsArray[23].itype := 'StatPotion';
+  itemsArray[23].image := LoadBitmap('Items/DefensePotion.png');
+  itemsArray[24].name := 'Golden Helm';
+  itemsArray[24].itype := 'Helm';
+  itemsArray[24].image := LoadBitmap('Items/GoldenHelm.png');
+  itemsArray[25].name := 'Golden Quiver';
+  itemsArray[25].itype := 'Quiver';
+  itemsArray[25].image := LoadBitmap('Items/GoldenQuiver.png');
+  itemsArray[26].name := 'Vitality Potion';
+  itemsArray[26].itype := 'StatPotion';
+  itemsArray[26].image := LoadBitmap('Items/VitalityPotion.png');
+  itemsArray[27].name := 'Cloak of the Planewalker';
+  itemsArray[27].itype := 'Cloak';
+  itemsArray[27].image := LoadBitmap('Items/CloakofthePlanewalker.png');
+  itemsArray[28].name := 'Roc Leather Armor';
+  itemsArray[28].itype := 'LeatherArmor';
+  itemsArray[28].image := LoadBitmap('Items/RocLeatherArmor.png');
+  itemsArray[29].name := 'Robe of the Shadow Magus';
+  itemsArray[29].itype := 'Robe';
+  itemsArray[29].image := LoadBitmap('Items/RobeoftheShadowMagus.png');
+  itemsArray[30].name := 'Emeraldshard Dagger';
+  itemsArray[30].itype := 'Dagger';
+  itemsArray[30].image := LoadBitmap('Items/EmeraldshardDagger.png');
+  itemsArray[31].name := 'Attack Potion';
+  itemsArray[31].itype := 'StatPotion';
+  itemsArray[31].image := LoadBitmap('Items/AttackPotion.png');
+  itemsArray[32].name := 'Wisdom Potion';
+  itemsArray[32].itype := 'StatPotion';
+  itemsArray[32].image := LoadBitmap('Items/WisdomPotion.png');
+  itemsArray[33].name := 'Dexterity Potion';
+  itemsArray[33].itype := 'StatPotion';
+  itemsArray[33].image := LoadBitmap('Items/DexterityPotion.png');
+  itemsArray[34].name := 'Speed Potion';
+  itemsArray[34].itype := 'StatPotion';
+  itemsArray[34].image := LoadBitmap('Items/SpeedPotion.png');
+  itemsArray[35].name := 'Verdant Bow';
+  itemsArray[35].itype := 'Bow';
+  itemsArray[35].image := LoadBitmap('Items/VerdantBow.png');
+  itemsArray[36].name := 'Archon Sword';
+  itemsArray[36].itype := 'Sword';
+  itemsArray[36].image := LoadBitmap('Items/ArchonSword.png');
+  itemsArray[37].name := 'Ragetalon Dagger';
+  itemsArray[37].itype := 'Dagger';
+  itemsArray[37].image := LoadBitmap('Items/RagetalonDagger.png');
+  itemsArray[38].name := 'Staff of Necrotic Arcanas';
+  itemsArray[38].itype := 'Staff';
+  itemsArray[38].image := LoadBitmap('Items/StaffofNecroticArcana.png');
+  itemsArray[39].name := 'Ring of Paramount Wisdom';
+  itemsArray[39].itype := 'Ring';
+  itemsArray[39].image := LoadBitmap('Items/RingofParamountWisdom.png');
+  itemsArray[40].name := 'Tincture Of Defense';
+  itemsArray[40].itype := 'Tincture';
+  itemsArray[40].image := LoadBitmap('Items/TinctureOfDefense.png');
+  itemsArray[41].name := 'Tincture Of Dexterity';
+  itemsArray[41].itype := 'Tincture';
+  itemsArray[41].image := LoadBitmap('Items/TinctureOfDexterity.png');
+  itemsArray[42].name := 'Desolation Armor';
+  itemsArray[42].itype := 'HeavyArmor';
+  itemsArray[42].image := LoadBitmap('Items/DesolationArmor.png');
+  itemsArray[43].name := 'Ring of Paramount Health';
+  itemsArray[43].itype := 'Ring';
+  itemsArray[43].image := LoadBitmap('Items/RingofParamountHealth.png');
+  itemsArray[44].name := 'White Drake Egg';
+  itemsArray[44].itype := 'DrakeEgg';
+  itemsArray[44].image := LoadBitmap('Items/WhiteDrakeEgg.png');
+  itemsArray[45].name := 'Destruction Sphere Spell';
+  itemsArray[45].itype := 'Spell';
+  itemsArray[45].image := LoadBitmap('Items/DestructionSphereSpell.png');
+  itemsArray[46].name := 'Drake Hide Armor';
+  itemsArray[46].itype := 'LeatherArmor';
+  itemsArray[46].image := LoadBitmap('Items/DrakeHideArmor.png');
+  itemsArray[47].name := 'Ring of Paramount Vitality';
+  itemsArray[47].itype := 'Ring';
+  itemsArray[47].image := LoadBitmap('Items/RingofParamountVitality.png');
+  itemsArray[48].name := 'Green Drake Egg';
+  itemsArray[48].itype := 'DrakeEgg';
+  itemsArray[48].image := LoadBitmap('Items/GreenDrakeEgg.png');
+  itemsArray[49].name := 'Ring of Paramount Defense';
+  itemsArray[49].itype := 'Ring';
+  itemsArray[49].image := LoadBitmap('Items/ParamountDefense.png');
+  itemsArray[50].name := 'Healing Ichor';
+  itemsArray[50].itype := 'Health';
+  itemsArray[50].image := LoadBitmap('Items/HealingIchor.png');
+  itemsArray[51].name := 'Snake Oil';
+  itemsArray[51].itype := 'Health';
+  itemsArray[51].image := LoadBitmap('Items/SnakeOil.png');
+  itemsArray[52].name := 'Health Potion';
+  itemsArray[52].itype := 'Health';
+  itemsArray[52].image := LoadBitmap('Items/HealthPotion.png');
+  itemsArray[53].name := 'Magic Potion';
+  itemsArray[53].itype := 'Mana';
+  itemsArray[53].image := LoadBitmap('Items/MagicPotion.png');
+  itemsArray[54].name := 'Golden Bow';
+  itemsArray[54].itype := 'Bow';
+  itemsArray[54].image := LoadBitmap('Items/GoldenBow.png');
+  itemsArray[55].name := 'Dragonscale Armor';
+  itemsArray[55].itype := 'HeavyArmor';
+  itemsArray[55].image := LoadBitmap('Items/DragonScaleArmor.png');
+  itemsArray[56].name := 'Sprite Wand';
+  itemsArray[56].itype := 'Wand';
+  itemsArray[56].image := LoadBitmap('Items/SpriteWand.png');
+  itemsArray[57].name := 'Minor Health Potion';
+  itemsArray[57].itype := 'Health';
+  itemsArray[57].image := LoadBitmap('Items/MinorHealthPotion.png');
+  itemsArray[58].name := 'Minor Mana Potion';
+  itemsArray[58].itype := 'Mana';
+  itemsArray[58].image := LoadBitmap('Items/MinorManaPotion.png');
+  {
+  itemsArray[].name := '';
+  itemsArray[].image := LoadBitmap('Items/');
+  }
+
 
   // Save a screendump!
-  SaveScreenshot('RotMG_client.png');
+  //SaveScreenshot('RotMG_client.png');
   GetClientDimensions(clientW,clientH);
   writeLn('W:' + IntToStr(clientW) + ' / H:' + IntToStr(clientH));
 
   while true do
     begin
-      For i := 1 to 10 do
+      For i := 1 to itemLength do
       Begin
         if FindBitmapToleranceIn(itemsArray[i].image, x, y, 610, 508, 795, 600, 10) then
         begin
           // Find items
-          writeLn('We found: ' + itemsArray[i].name +' @' + IntToStr(x) + '/' + IntToStr(y) );
+          //consoleWrite('We found: ' + itemsArray[i].name +' @' + IntToStr(x) + '/' + IntToStr(y) );
           findFreeSlots(sX,sY,slotSvailable);
           if slotSvailable then
             Begin
               GrabItem(itemsArray[i], x, y, sX, sY);
             End;
+          { Else
+              Begin
+                SwapItem(itemsArray[i], x, y);
+              End;
+          }
          end;
       end;
-    end;
 
+      autoPotionUse();
+
+  end;
 end.
